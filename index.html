@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity Work Allocation Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.12.3/d3-sankey.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #1e3c72;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.2em;
+            font-weight: 300;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            border: none;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn.export {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .allocation-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-height: 800px;
+            overflow-y: auto;
+        }
+
+        .visualization-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .team-section {
+            margin-bottom: 30px;
+            border: 2px solid #e3f2fd;
+            border-radius: 15px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        }
+
+        .team-title {
+            color: #1e3c72;
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .team-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+        }
+
+        .role-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .role-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .work-allocation {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .work-type {
+            font-size: 0.9em;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .allocation-input {
+            width: 70px;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            transition: border-color 0.3s ease;
+        }
+
+        .allocation-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .percentage {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .total-allocation {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .warning {
+            background: rgba(244, 67, 54, 0.1);
+            color: #d32f2f;
+            border-left: 4px solid #f44336;
+        }
+
+        .valid {
+            background: rgba(76, 175, 80, 0.1);
+            color: #388e3c;
+            border-left: 4px solid #4caf50;
+        }
+
+        #sankey {
+            width: 100%;
+            height: 600px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        }
+
+        .sankey-node {
+            cursor: pointer;
+        }
+
+        .sankey-link {
+            fill: none;
+            stroke-opacity: 0.6;
+            transition: stroke-opacity 0.3s ease;
+        }
+
+        .sankey-link:hover {
+            stroke-opacity: 0.8;
+        }
+
+        .node-label {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            fill: #333;
+        }
+
+        .warning-message {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid #ff9800;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            color: #ef6c00;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .status-valid {
+            background: #4caf50;
+        }
+
+        .status-warning {
+            background: #ff9800;
+        }
+
+        .status-error {
+            background: #f44336;
+        }
+
+        .filter-section {
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 2px solid #e3f2fd;
+        }
+
+        .filter-groups {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid #e3f2fd;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .filter-title {
+            font-weight: 700;
+            color: #1e3c72;
+            font-size: 1.1em;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            background: transparent;
+            border: 1px solid #667eea;
+            color: #667eea;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .filter-checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .filter-checkbox:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .filter-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+            cursor: pointer;
+        }
+
+        .filter-checkbox label {
+            cursor: pointer;
+            font-weight: 500;
+            color: #333;
+            user-select: none;
+        }
+
+        .filter-status {
+            background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+            border: 2px solid #4caf50;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-status.filtered {
+            background: linear-gradient(135deg, #fff3e0 0%, #fef7ed 100%);
+            border-color: #ff9800;
+        }
+
+        .status-text {
+            font-weight: 600;
+            color: #2e7d32;
+        }
+
+        .filter-status.filtered .status-text {
+            color: #ef6c00;
+        }
+
+        .clear-filters {
+            background: linear-gradient(135deg, #ff7043 0%, #ff5722 100%);
+            font-size: 0.9em;
+            padding: 8px 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Cybersecurity Work Allocation Tool</h1>
+            <p class="subtitle">Visualize team workload distribution across capabilities and roles</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div class="file-input-wrapper">
+                    <input type="file" id="jsonUpload" class="file-input" accept=".json" />
+                    <label for="jsonUpload" class="file-input-label">📁 Import Configuration</label>
+                </div>
+                <button class="btn export" onclick="exportConfiguration()">💾 Export Configuration</button>
+                <button class="btn" onclick="resetToDefault()">🔄 Reset to Default</button>
+            </div>
+            
+            <div class="filter-section">
+                <h3 style="color: #1e3c72; margin-bottom: 15px;">🔍 Filters</h3>
+                <div class="filter-groups">
+                    <div class="filter-group">
+                        <div class="filter-header">
+                            <span class="filter-title">Teams</span>
+                            <div class="filter-actions">
+                                <button class="filter-btn" onclick="selectAllTeams()">Select All</button>
+                                <button class="filter-btn" onclick="deselectAllTeams()">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="filter-checkboxes" id="teamFilters"></div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-header">
+                            <span class="filter-title">Roles</span>
+                            <div class="filter-actions">
+                                <button class="filter-btn" onclick="selectAllRoles()">Select All</button>
+                                <button class="filter-btn" onclick="deselectAllRoles()">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="filter-checkboxes" id="roleFilters"></div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-header">
+                            <span class="filter-title">Work Types</span>
+                            <div class="filter-actions">
+                                <button class="filter-btn" onclick="selectAllWorkTypes()">Select All</button>
+                                <button class="filter-btn" onclick="deselectAllWorkTypes()">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="filter-checkboxes" id="workTypeFilters"></div>
+                    </div>
+                </div>
+                
+                <div class="filter-status" id="filterStatus">
+                    <span class="status-text">All teams and roles visible</span>
+                    <button class="btn clear-filters" onclick="clearAllFilters()" style="display: none;">Clear All Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="allocation-panel">
+                <h2 style="margin-bottom: 25px; color: #1e3c72;">Team Allocations</h2>
+                <div id="teamsContainer"></div>
+            </div>
+
+            <div class="visualization-panel">
+                <h2 style="margin-bottom: 25px; color: #1e3c72;">Work Flow Visualization</h2>
+                <svg id="sankey"></svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default configuration
+        const defaultConfig = {
+            teams: {
+                "Capabilities & Architecture": {
+                    roles: {
+                        "Lead": {
+                            "NEW CAPABILITIES": 25,
+                            "EXISTING CAPABILITIES": 20,
+                            "BUSINESS SUPPORT": 15,
+                            "SERVICE REQUESTS": 10,
+                            "OPERATIONAL UPLIFT": 15,
+                            "INTRA-TEAM REQUESTS": 10,
+                            "PROFESSIONAL DEVELOPMENT": 5
+                        },
+                        "Specialist": {
+                            "NEW CAPABILITIES": 30,
+                            "EXISTING CAPABILITIES": 25,
+                            "BUSINESS SUPPORT": 10,
+                            "SERVICE REQUESTS": 15,
+                            "OPERATIONAL UPLIFT": 10,
+                            "INTRA-TEAM REQUESTS": 5,
+                            "PROFESSIONAL DEVELOPMENT": 5
+                        }
+                    }
+                },
+                "Threat Management": {
+                    roles: {
+                        "Lead": {
+                            "NEW CAPABILITIES": 15,
+                            "EXISTING CAPABILITIES": 30,
+                            "BUSINESS SUPPORT": 20,
+                            "SERVICE REQUESTS": 15,
+                            "OPERATIONAL UPLIFT": 10,
+                            "INTRA-TEAM REQUESTS": 5,
+                            "PROFESSIONAL DEVELOPMENT": 5
+                        },
+                        "Specialist": {
+                            "NEW CAPABILITIES": 10,
+                            "EXISTING CAPABILITIES": 35,
+                            "BUSINESS SUPPORT": 15,
+                            "SERVICE REQUESTS": 20,
+                            "OPERATIONAL UPLIFT": 10,
+                            "INTRA-TEAM REQUESTS": 5,
+                            "PROFESSIONAL DEVELOPMENT": 5
+                        }
+                    }
+                },
+                "Risk Operations": {
+                    roles: {
+                        "Lead": {
+                            "NEW CAPABILITIES": 10,
+                            "EXISTING CAPABILITIES": 25,
+                            "BUSINESS SUPPORT": 25,
+                            "SERVICE REQUESTS": 20,
+                            "OPERATIONAL UPLIFT": 10,
+                            "INTRA-TEAM REQUESTS": 5,
+                            "PROFESSIONAL DEVELOPMENT": 5
+                        },
+                        "Analyst": {
+                            "NEW CAPABILITIES": 5,
+                            "EXISTING CAPABILITIES": 20,
+                            "BUSINESS SUPPORT": 30,
+                            "SERVICE REQUESTS": 25,
+                            "OPERATIONAL UPLIFT": 10,
+                            "INTRA-TEAM REQUESTS": 5,
+                            "PROFESSIONAL DEVELOPMENT": 5
+                        }
+                    }
+                }
+            }
+        };
+
+        let currentConfig = JSON.parse(JSON.stringify(defaultConfig));
+        
+        // Filter state
+        let activeFilters = {
+            teams: new Set(),
+            roles: new Set(),
+            workTypes: new Set()
+        };
+
+        const workTypes = [
+            "NEW CAPABILITIES",
+            "EXISTING CAPABILITIES", 
+            "BUSINESS SUPPORT",
+            "SERVICE REQUESTS",
+            "OPERATIONAL UPLIFT",
+            "INTRA-TEAM REQUESTS",
+            "PROFESSIONAL DEVELOPMENT"
+        ];
+
+        // Initialize the application
+        function init() {
+            initializeFilters();
+            renderTeams();
+            updateVisualization();
+            
+            document.getElementById('jsonUpload').addEventListener('change', handleFileUpload);
+        }
+
+        function initializeFilters() {
+            // Initialize team filters
+            const teamFiltersContainer = document.getElementById('teamFilters');
+            const roleFiltersContainer = document.getElementById('roleFilters');
+            const workTypeFiltersContainer = document.getElementById('workTypeFilters');
+            
+            // Get all unique teams
+            const teams = Object.keys(currentConfig.teams);
+            teamFiltersContainer.innerHTML = teams.map(team => `
+                <div class="filter-checkbox">
+                    <input type="checkbox" id="team-${team}" checked onchange="updateTeamFilter('${team}', this.checked)">
+                    <label for="team-${team}">${team}</label>
+                </div>
+            `).join('');
+            
+            // Get all unique roles
+            const roles = new Set();
+            Object.values(currentConfig.teams).forEach(team => {
+                Object.keys(team.roles).forEach(role => roles.add(role));
+            });
+            
+            roleFiltersContainer.innerHTML = Array.from(roles).map(role => `
+                <div class="filter-checkbox">
+                    <input type="checkbox" id="role-${role}" checked onchange="updateRoleFilter('${role}', this.checked)">
+                    <label for="role-${role}">${role}</label>
+                </div>
+            `).join('');
+            
+            // Initialize work type filters
+            workTypeFiltersContainer.innerHTML = workTypes.map(workType => `
+                <div class="filter-checkbox">
+                    <input type="checkbox" id="worktype-${workType}" checked onchange="updateWorkTypeFilter('${workType}', this.checked)">
+                    <label for="worktype-${workType}">${workType}</label>
+                </div>
+            `).join('');
+            
+            // Initialize all filters as active (everything visible)
+            teams.forEach(team => activeFilters.teams.add(team));
+            Array.from(roles).forEach(role => activeFilters.roles.add(role));
+            workTypes.forEach(workType => activeFilters.workTypes.add(workType));
+            
+            updateFilterStatus();
+        }
+
+        function updateTeamFilter(teamName, isChecked) {
+            if (isChecked) {
+                activeFilters.teams.add(teamName);
+            } else {
+                activeFilters.teams.delete(teamName);
+            }
+            applyFilters();
+        }
+
+        function updateRoleFilter(roleName, isChecked) {
+            if (isChecked) {
+                activeFilters.roles.add(roleName);
+            } else {
+                activeFilters.roles.delete(roleName);
+            }
+            applyFilters();
+        }
+
+        function updateWorkTypeFilter(workTypeName, isChecked) {
+            if (isChecked) {
+                activeFilters.workTypes.add(workTypeName);
+            } else {
+                activeFilters.workTypes.delete(workTypeName);
+            }
+            applyFilters();
+        }
+
+        function selectAllTeams() {
+            Object.keys(currentConfig.teams).forEach(team => {
+                activeFilters.teams.add(team);
+                const checkbox = document.getElementById(`team-${team}`);
+                if (checkbox) checkbox.checked = true;
+            });
+            applyFilters();
+        }
+
+        function deselectAllTeams() {
+            activeFilters.teams.clear();
+            Object.keys(currentConfig.teams).forEach(team => {
+                const checkbox = document.getElementById(`team-${team}`);
+                if (checkbox) checkbox.checked = false;
+            });
+            applyFilters();
+        }
+
+        function selectAllRoles() {
+            const roles = new Set();
+            Object.values(currentConfig.teams).forEach(team => {
+                Object.keys(team.roles).forEach(role => roles.add(role));
+            });
+            
+            Array.from(roles).forEach(role => {
+                activeFilters.roles.add(role);
+                const checkbox = document.getElementById(`role-${role}`);
+                if (checkbox) checkbox.checked = true;
+            });
+            applyFilters();
+        }
+
+        function deselectAllRoles() {
+            activeFilters.roles.clear();
+            const roles = new Set();
+            Object.values(currentConfig.teams).forEach(team => {
+                Object.keys(team.roles).forEach(role => roles.add(role));
+            });
+            
+            Array.from(roles).forEach(role => {
+                const checkbox = document.getElementById(`role-${role}`);
+                if (checkbox) checkbox.checked = false;
+            });
+            applyFilters();
+        }
+
+        function selectAllWorkTypes() {
+            workTypes.forEach(workType => {
+                activeFilters.workTypes.add(workType);
+                const checkbox = document.getElementById(`worktype-${workType}`);
+                if (checkbox) checkbox.checked = true;
+            });
+            applyFilters();
+        }
+
+        function deselectAllWorkTypes() {
+            activeFilters.workTypes.clear();
+            workTypes.forEach(workType => {
+                const checkbox = document.getElementById(`worktype-${workType}`);
+                if (checkbox) checkbox.checked = false;
+            });
+            applyFilters();
+        }
+
+        function clearAllFilters() {
+            selectAllTeams();
+            selectAllRoles();
+            selectAllWorkTypes();
+        }
+
+        function applyFilters() {
+            renderTeams();
+            updateVisualization();
+            updateFilterStatus();
+        }
+
+        function updateFilterStatus() {
+            const statusElement = document.getElementById('filterStatus');
+            const statusText = statusElement.querySelector('.status-text');
+            const clearButton = statusElement.querySelector('.clear-filters');
+            
+            const totalTeams = Object.keys(currentConfig.teams).length;
+            const totalRoles = new Set();
+            Object.values(currentConfig.teams).forEach(team => {
+                Object.keys(team.roles).forEach(role => totalRoles.add(role));
+            });
+            const totalWorkTypes = workTypes.length;
+            
+            const isFiltered = activeFilters.teams.size < totalTeams || 
+                             activeFilters.roles.size < totalRoles.size ||
+                             activeFilters.workTypes.size < totalWorkTypes;
+            
+            if (isFiltered) {
+                statusElement.classList.add('filtered');
+                statusText.textContent = `Showing ${activeFilters.teams.size}/${totalTeams} teams, ${activeFilters.roles.size}/${totalRoles.size} roles, ${activeFilters.workTypes.size}/${totalWorkTypes} work types`;
+                clearButton.style.display = 'block';
+            } else {
+                statusElement.classList.remove('filtered');
+                statusText.textContent = 'All teams, roles, and work types visible';
+                clearButton.style.display = 'none';
+            }
+        }
+
+        function shouldShowTeamRole(teamName, roleName) {
+            // Union logic: Show if team is selected OR if role is selected
+            return activeFilters.teams.has(teamName) || activeFilters.roles.has(roleName);
+        }
+
+        function shouldShowWorkType(workType) {
+            // Show if work type is selected
+            return activeFilters.workTypes.has(workType);
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            container.innerHTML = '';
+
+            Object.entries(currentConfig.teams).forEach(([teamName, teamData]) => {
+                // Check if this team has any visible roles
+                const hasVisibleRoles = Object.keys(teamData.roles).some(roleName => 
+                    shouldShowTeamRole(teamName, roleName)
+                );
+                
+                if (!hasVisibleRoles) return; // Skip this team entirely
+                
+                const teamDiv = document.createElement('div');
+                teamDiv.className = 'team-section';
+                teamDiv.innerHTML = `
+                    <div class="team-title">
+                        <div class="team-icon"></div>
+                        ${teamName}
+                    </div>
+                `;
+
+                Object.entries(teamData.roles).forEach(([roleName, allocations]) => {
+                    if (!shouldShowTeamRole(teamName, roleName)) return; // Skip this role
+                    
+                    const roleDiv = document.createElement('div');
+                    roleDiv.className = 'role-section';
+                    
+                    // Filter work types to only show selected ones
+                    const visibleWorkTypes = workTypes.filter(workType => shouldShowWorkType(workType));
+                    
+                    if (visibleWorkTypes.length === 0) return; // Skip this role if no work types are visible
+                    
+                    roleDiv.innerHTML = `
+                        <div class="role-title">${roleName}</div>
+                        ${visibleWorkTypes.map(workType => `
+                            <div class="work-allocation">
+                                <div class="work-type">${workType}</div>
+                                <input type="number" 
+                                       class="allocation-input" 
+                                       value="${allocations[workType] || 0}"
+                                       min="0" 
+                                       max="100"
+                                       onchange="updateAllocation('${teamName}', '${roleName}', '${workType}', this.value)">
+                                <div class="percentage">%</div>
+                            </div>
+                        `).join('')}
+                        <div class="total-allocation" id="total-${teamName}-${roleName}">
+                            <span>Total Allocation:</span>
+                            <span>
+                                <span id="total-value-${teamName}-${roleName}"></span>%
+                                <div class="status-indicator" id="status-${teamName}-${roleName}"></div>
+                            </span>
+                        </div>
+                        <div class="warning-message" id="warning-${teamName}-${roleName}">
+                            ⚠️ Total allocation exceeds 100%. Please adjust the values.
+                        </div>
+                    `;
+                    
+                    teamDiv.appendChild(roleDiv);
+                    updateRoleTotal(teamName, roleName);
+                });
+
+                container.appendChild(teamDiv);
+            });
+        }
+
+        function updateAllocation(teamName, roleName, workType, value) {
+            const numValue = parseInt(value) || 0;
+            currentConfig.teams[teamName].roles[roleName][workType] = numValue;
+            updateRoleTotal(teamName, roleName);
+            updateVisualization();
+        }
+
+        function updateRoleTotal(teamName, roleName) {
+            const allocations = currentConfig.teams[teamName].roles[roleName];
+            const total = Object.values(allocations).reduce((sum, val) => sum + val, 0);
+            
+            const totalElement = document.getElementById(`total-value-${teamName}-${roleName}`);
+            const statusElement = document.getElementById(`status-${teamName}-${roleName}`);
+            const warningElement = document.getElementById(`warning-${teamName}-${roleName}`);
+            const totalContainer = document.getElementById(`total-${teamName}-${roleName}`);
+            
+            if (totalElement) totalElement.textContent = total;
+            
+            if (statusElement && totalContainer) {
+                statusElement.className = 'status-indicator';
+                totalContainer.className = 'total-allocation';
+                
+                if (total > 100) {
+                    statusElement.classList.add('status-error');
+                    totalContainer.classList.add('warning');
+                    if (warningElement) warningElement.style.display = 'block';
+                } else if (total < 100) {
+                    statusElement.classList.add('status-warning');
+                    if (warningElement) warningElement.style.display = 'none';
+                } else {
+                    statusElement.classList.add('status-valid');
+                    totalContainer.classList.add('valid');
+                    if (warningElement) warningElement.style.display = 'none';
+                }
+            }
+        }
+
+        function updateVisualization() {
+            const sankeyData = prepareSankeyData();
+            renderSankey(sankeyData);
+        }
+
+        function prepareSankeyData() {
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map();
+            
+            let nodeIndex = 0;
+            
+            // Add team nodes (only visible ones)
+            Object.keys(currentConfig.teams).forEach(teamName => {
+                const hasVisibleRoles = Object.keys(currentConfig.teams[teamName].roles).some(roleName => 
+                    shouldShowTeamRole(teamName, roleName)
+                );
+                if (hasVisibleRoles) {
+                    nodeMap.set(teamName, nodeIndex);
+                    nodes.push({ name: teamName, category: 'team' });
+                    nodeIndex++;
+                }
+            });
+            
+            // Add role nodes (only visible ones)
+            Object.entries(currentConfig.teams).forEach(([teamName, teamData]) => {
+                Object.keys(teamData.roles).forEach(roleName => {
+                    if (shouldShowTeamRole(teamName, roleName)) {
+                        const roleKey = `${teamName}-${roleName}`;
+                        nodeMap.set(roleKey, nodeIndex);
+                        nodes.push({ name: roleName, category: 'role' });
+                        nodeIndex++;
+                    }
+                });
+            });
+            
+            // Add work type nodes (only if they have visible connections AND are selected)
+            const visibleWorkTypes = new Set();
+            Object.entries(currentConfig.teams).forEach(([teamName, teamData]) => {
+                Object.entries(teamData.roles).forEach(([roleName, allocations]) => {
+                    if (shouldShowTeamRole(teamName, roleName)) {
+                        Object.entries(allocations).forEach(([workType, value]) => {
+                            if (value > 0 && shouldShowWorkType(workType)) {
+                                visibleWorkTypes.add(workType);
+                            }
+                        });
+                    }
+                });
+            });
+            
+            visibleWorkTypes.forEach(workType => {
+                nodeMap.set(workType, nodeIndex);
+                nodes.push({ name: workType, category: 'work' });
+                nodeIndex++;
+            });
+            
+            // Create links: Team -> Role (only for visible combinations)
+            Object.entries(currentConfig.teams).forEach(([teamName, teamData]) => {
+                Object.entries(teamData.roles).forEach(([roleName, allocations]) => {
+                    if (shouldShowTeamRole(teamName, roleName)) {
+                        const totalAllocation = Object.values(allocations).reduce((sum, val) => sum + val, 0);
+                        if (totalAllocation > 0 && nodeMap.has(teamName)) {
+                            links.push({
+                                source: nodeMap.get(teamName),
+                                target: nodeMap.get(`${teamName}-${roleName}`),
+                                value: totalAllocation
+                            });
+                        }
+                    }
+                });
+            });
+            
+            // Create links: Role -> Work Type (only for visible combinations)
+            Object.entries(currentConfig.teams).forEach(([teamName, teamData]) => {
+                Object.entries(teamData.roles).forEach(([roleName, allocations]) => {
+                    if (shouldShowTeamRole(teamName, roleName)) {
+                        Object.entries(allocations).forEach(([workType, value]) => {
+                            if (value > 0 && shouldShowWorkType(workType) && nodeMap.has(`${teamName}-${roleName}`) && nodeMap.has(workType)) {
+                                links.push({
+                                    source: nodeMap.get(`${teamName}-${roleName}`),
+                                    target: nodeMap.get(workType),
+                                    value: value
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+            
+            return { nodes, links };
+        }
+
+        function renderSankey(data) {
+            const svg = d3.select("#sankey");
+            svg.selectAll("*").remove();
+            
+            const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+            const width = 800 - margin.left - margin.right;
+            const height = 600 - margin.top - margin.bottom;
+            
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const sankey = d3.sankey()
+                .nodeWidth(20)
+                .nodePadding(20)
+                .extent([[0, 0], [width, height]]);
+            
+            const sankeyData = sankey(data);
+            
+            // Color scales for different categories
+            const teamColors = d3.scaleOrdinal(d3.schemeSet2);
+            const roleColors = d3.scaleOrdinal(d3.schemeSet3);
+            const workColors = d3.scaleOrdinal(d3.schemePastel1);
+            
+            // Add links
+            g.append("g")
+                .selectAll("path")
+                .data(sankeyData.links)
+                .enter().append("path")
+                .attr("class", "sankey-link")
+                .attr("d", d3.sankeyLinkHorizontal())
+                .attr("stroke", d => {
+                    const sourceCategory = sankeyData.nodes[d.source.index].category;
+                    if (sourceCategory === 'team') return teamColors(d.source.index);
+                    if (sourceCategory === 'role') return roleColors(d.source.index);
+                    return workColors(d.source.index);
+                })
+                .attr("stroke-width", d => Math.max(1, d.width));
+            
+            // Add nodes
+            const node = g.append("g")
+                .selectAll("rect")
+                .data(sankeyData.nodes)
+                .enter().append("rect")
+                .attr("class", "sankey-node")
+                .attr("x", d => d.x0)
+                .attr("y", d => d.y0)
+                .attr("height", d => d.y1 - d.y0)
+                .attr("width", d => d.x1 - d.x0)
+                .attr("fill", d => {
+                    if (d.category === 'team') return teamColors(d.index);
+                    if (d.category === 'role') return roleColors(d.index);
+                    return workColors(d.index);
+                })
+                .attr("opacity", 0.8);
+            
+            // Add labels
+            g.append("g")
+                .selectAll("text")
+                .data(sankeyData.nodes)
+                .enter().append("text")
+                .attr("class", "node-label")
+                .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+                .attr("y", d => (d.y1 + d.y0) / 2)
+                .attr("dy", "0.35em")
+                .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+                .text(d => d.name);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type === "application/json") {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedConfig = JSON.parse(e.target.result);
+                        if (validateConfiguration(importedConfig)) {
+                            currentConfig = importedConfig;
+                            initializeFilters(); // Re-initialize filters for new config
+                            renderTeams();
+                            updateVisualization();
+                            alert('Configuration imported successfully!');
+                        } else {
+                            alert('Invalid configuration format. Please check your JSON file.');
+                        }
+                    } catch (error) {
+                        alert('Error parsing JSON file: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function validateConfiguration(config) {
+            return config && 
+                   config.teams && 
+                   typeof config.teams === 'object' &&
+                   Object.values(config.teams).every(team => 
+                       team.roles && typeof team.roles === 'object'
+                   );
+        }
+
+        function exportConfiguration() {
+            const dataStr = JSON.stringify(currentConfig, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cybersecurity_work_allocation.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function resetToDefault() {
+            if (confirm('Are you sure you want to reset to default configuration? This will lose all current changes.')) {
+                currentConfig = JSON.parse(JSON.stringify(defaultConfig));
+                initializeFilters(); // Re-initialize filters for default config
+                renderTeams();
+                updateVisualization();
+            }
+        }
+
+        // Initialize the application when the page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
